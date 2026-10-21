@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="训练记录">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.png">
+<title>训练记录</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{background:#f5f7fa;color:#22;padding-bottom:80px;font-size:15px;line-height:1.5}
+.tab-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ddd;display:flex;z-index:99}
+.tab{flex:1;text-align:center;padding:12px 4px;font-size:14px;color:#666;cursor:pointer}
+.tab.active{color:#2563eb;font-weight:600}
+.page{display:none;padding:16px;max-width:900px;margin:0 auto}
+.page.active{display:block}
+.card{background:#fff;border-radius:10px;padding:16px;margin-bottom:14px;box-shadow:0 1px 4px #00000012}
+h3{margin-bottom:12px;font-size:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+input,select,button{font-size:16px;padding:8px 10px;border:1px solid #ccc;border-radius:6px}
+input{min-width:55px;max-width:70px}
+button{cursor:pointer;background:#fff;color:#22;border:1px solid #bbb}
+button.primary{background:#2563eb;color:#fff;border-color:#2563eb}
+button.danger{background:#dc2626;color:#fff;border-color:#dc2626}
+button.success{background:#16a34a;color:#fff;border-color:#16a34a}
+.btn-sm{padding:5px 6px;font-size:13px;white-space:nowrap}
+.action-wrap{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.exercise-item{border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin:10px 0;background:#fbfcfe}
+.exercise-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.set-row{display:flex;gap:4px;align-items:center;flex-wrap:nowrap;overflow-x:auto;padding:4px 0}
+.tag-btn{padding:3px 5px;border-radius:4px;font-size:12px;border:1px solid #aaa;cursor:pointer;white-space:nowrap}
+.tag-btn.on{background:#2563eb;color:#fff;border-color:#2563eb}
+.preview-box{background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:10px;color:#065f46}
+.history-item{border:1px solid #e5e7eb;border-radius:8px;margin-bottom:10px;overflow:hidden}
+.history-head{padding:10px;background:#f9fafb;cursor:pointer;font-weight:500}
+.history-body{padding:10px;display:none}
+.history-body.open{display:block}
+.chart-wrap{margin:16px 0}
+svg{width:100%;height:auto}
+.store-info{background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px;margin-bottom:12px;font-size:14px}
+.modal{position:fixed;inset:0;background:#00000050;display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal.open{display:flex}
+.modal-content{background:#fff;border-radius:10px;padding:16px;width:100%;max-width:600px;max-height:85vh;overflow:auto}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.item-line{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee}
+.timer-display{font-size:28px;font-weight:bold;text-align:center;margin:8px 0;color:#1e293b;letter-spacing:2px}
+.weight-wrap{display:flex;align-items:center;gap:2px}
+.weight-wrap span{color:#555;font-size:12px}
+.lib-tag{display:inline-block;padding:2px 6px;border-radius:4px;font-size:12px;background:#e2e8f0;margin-right:6px}
+.lib-tag.exercise{background:#dbeafe;color:#1d4ed8}
+.lib-tag.part{background:#dcfce7;color:#15803d}
+.multiselect{min-width:220px}
+.filter-row{margin-bottom:10px}
+.part-show-box{
+  border:1px solid #cbd5e1;
+  border-radius:6px;
+  padding:8px 10px;
+  min-height:38px;
+  margin-bottom:8px;
+  color:#334155;
+}
+.long-input{
+  min-width:240px;
+  max-width:none;
+  flex:1;
+}
+.ex-name-row{display:flex;gap:8px;align-items:center}
+.ex-name-row select{flex:0 0 140px}
+.ex-name-row input{flex:1;min-width:140px;max-width:none}
+</style>
+</head>
+<body>
+<div class="page active" id="page-record">
+  <div class="card">
+    <h3>训练日期</h3>
+    <input type="date" id="train-date">
+  </div>
+
+  <div class="card">
+    <h3>训练计时器</h3>
+    <div class="timer-display" id="timer-text">00:00:00</div>
+    <div class="action-wrap" style="justify-content:center">
+      <button class="success btn-sm" onclick="timerStart()">开始</button>
+      <button class="btn-sm" onclick="timerPause()">暂停</button>
+      <button class="primary btn-sm" onclick="timerStop()">结束</button>
+      <button class="danger btn-sm" onclick="timerReset()">重置</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>训练部位</h3>
+    <div class="part-show-box" id="part-show">未选择部位</div>
+    <select id="part-select" class="multiselect" multiple size="4" onchange="renderSelectedPart()"></select>
+  </div>
+
+  <div class="card">
+    <h3>动作明细</h3>
+    <div id="exercise-list"></div>
+    <div class="action-wrap" style="margin-top:12px">
+      <button class="btn-sm primary" onclick="addExercise()">新增动作</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="preview-box">
+      实时统计｜正式组数：<span id="live-set-count">0</span> ｜正式容量：<span id="live-volume">0</span> kg
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>训练收尾（结束后填写）</h3>
+    <div class="row">
+      <label>训练时长(分钟)：<input type="number" id="train-duration" placeholder="自动填充"></label>
+      <label>疲劳度RPE：<input type="number" min="1" max="10" id="train-rpe" placeholder="1-10"></label>
+    </div>
+    <div class="row">
+      <label>关节状态：<input type="text" id="joint-status" class="long-input" placeholder="右膝内侧轻微紧张"></label>
+    </div>
+    <div class="row">
+      <label>备注：<input type="text" id="train-note" class="long-input" placeholder="备注信息"></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="action-wrap">
+      <button class="primary" onclick="saveRecord()">保存本次训练</button>
+      <button onclick="openSaveTemplateModal()">保存为模板</button>
+      <button class="danger" onclick="clearRecord()">清空表单</button>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-history">
+  <div class="card">
+    <h3>存储信息 & 备份</h3>
+    <div class="store-info">
+      数据存储位置：浏览器本地存储<br>
+      ⚠️ 清除浏览器缓存会丢失数据，请定期备份！
+    </div>
+    <div class="action-wrap">
+      <button onclick="exportAll()">导出全部备份(JSON)</button>
+      <button onclick="importAll()">导入备份(JSON)</button>
+      <input type="file" id="import-file" accept=".json" style="display:none">
+    </div>
+  </div>
+  <div class="card">
+    <h3>训练历史</h3>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<div class="page" id="page-template">
+  <div class="card">
+    <h3>训练模板管理</h3>
+    <div id="template-list"></div>
+  </div>
+</div>
+
+<div class="page" id="page-exercise-lib">
+  <div class="card">
+    <h3>库管理（动作 / 部位）</h3>
+    <div class="filter-row row">
+      <label><input type="radio" name="libFilter" value="all" checked onchange="renderLib()"> 全部</label>
+      <label><input type="radio" name="libFilter" value="exercise" onchange="renderLib()"> 仅动作</label>
+      <label><input type="radio" name="libFilter" value="part" onchange="renderLib()"> 仅部位</label>
+    </div>
+    <div class="row">
+      <select id="lib-type-sel">
+        <option value="exercise">动作</option>
+        <option value="part">部位</option>
+      </select>
+      <input type="text" id="new-lib-name" placeholder="名称">
+      <button class="primary btn-sm" onclick="addLibItem()">添加入库</button>
+    </div>
+    <div id="lib-list"></div>
+  </div>
+</div>
+
+<div class="page" id="page-report">
+  <div class="card">
+    <h3>汇总统计</h3>
+    <div id="report-summary"></div>
+  </div>
+  <div class="card">
+    <h3>部位分布</h3>
+    <div class="chart-wrap" id="chart-part"></div>
+  </div>
+  <div class="card">
+    <h3>周训练量</h3>
+    <div class="chart-wrap" id="chart-week"></div>
+  </div>
+  <div class="card">
+    <h3>动作进步曲线</h3>
+    <div class="chart-wrap" id="chart-progress"></div>
+  </div>
+  <div class="card">
+    <div class="action-wrap">
+      <button onclick="reportPrint()">打印报表</button>
+      <button onclick="exportCsv()">导出CSV</button>
+    </div>
+  </div>
+</div>
+
+<div class="tab-bar">
+  <div class="tab active" data-page="page-record">记录</div>
+  <div class="tab" data-page="page-history">历史</div>
+  <div class="tab" data-page="page-template">模板</div>
+  <div class="tab" data-page="page-exercise-lib">库管理</div>
+  <div class="tab" data-page="page-report">报表</div>
+</div>
+
+<div class="modal" id="modal-rename">
+  <div class="modal-content">
+    <h3>重命名</h3>
+    <input type="text" id="rename-input">
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-rename')">取消</button>
+      <button class="primary" onclick="confirmRename()">确认</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal-save-temp">
+  <div class="modal-content">
+    <h3>保存为新模板</h3>
+    <input type="text" id="save-temp-name" placeholder="输入模板名称">
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-save-temp')">取消</button>
+      <button class="primary" onclick="confirmSaveNewTemplate()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal-preview-template">
+  <div class="modal-content">
+    <h3 id="preview-temp-title">模板预览</h3>
+    <div id="preview-temp-body"></div>
+    <div class="modal-footer">
+      <button class="primary" onclick="closeModal('modal-preview-template')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let store = {
+  records:[],
+  lib:[
+    {type:"exercise",name:"杠铃深蹲"},
+    {type:"exercise",name:"硬拉"},
+    {type:"exercise",name:"卧推"},
+    {type:"exercise",name:"推举"},
+    {type:"exercise",name:"引体向上"},
+    {type:"exercise",name:"划船"},
+    {type:"exercise",name:"臀推"},
+    {type:"exercise",name:"腿举"},
+    {type:"exercise",name:"哑铃卧推"},
+    {type:"exercise",name:"肩推"},
+    {type:"exercise",name:"弯举"},
+    {type:"exercise",name:"绳索下压"},
+    {type:"exercise",name:"罗马尼亚硬拉"},
+    {type:"part",name:"胸"},
+    {type:"part",name:"背"},
+    {type:"part",name:"肩"},
+    {type:"part",name:"手臂"},
+    {type:"part",name:"腿"},
+    {type:"part",name:"核心"},
+    {type:"part",name:"臀"},
+    {type:"part",name:"有氧"}
+  ],
+  templates:[],
+  timer:{startTs:null,pauseAt:null,running:false}
+};
+let currentExercises = [];
+let renameTarget = null;
+let timerInterval = null;
+
+function init(){
+  loadStore();
+  bindTab();
+  document.getElementById('train-date').valueAsDate = new Date();
+  renderLib();
+  renderPartSelect();
+  renderSelectedPart();
+  renderTemplateList();
+  renderHistory();
+  renderReport();
+  renderExerciseList();
+  calcLivePreview();
+  loadTimer();
+}
+function loadStore(){
+  const raw = localStorage.getItem("trainLogStore");
+  if(raw){
+    try { store = JSON.parse(raw); } catch(e){}
+  }
+  if(!store.lib) store.lib = [];
+  if(!store.templates) store.templates = [];
+  if(!store.records) store.records = [];
+  if(!store.timer) store.timer = {startTs:null,pauseAt:null,running:false};
+}
+function saveStore(){
+  localStorage.setItem("trainLogStore", JSON.stringify(store));
+}
+function bindTab(){
+  document.querySelectorAll('.tab').forEach(tab=>{
+    tab.onclick = ()=>{
+      document.querySelectorAll('.tab').forEach(i=>i.classList.remove('active'));
+      tab.classList.add('active');
+      const pid = tab.dataset.page;
+      document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+      document.getElementById(pid).classList.add('active');
+      if(pid === 'page-history') renderHistory();
+      if(pid === 'page-template') renderTemplateList();
+      if(pid === 'page-exercise-lib') renderLib();
+      if(pid === 'page-report') renderReport();
+    }
+  })
+}
+function renderSelectedPart(){
+  const sel = document.getElementById('part-select');
+  const arr = Array.from(sel.selectedOptions).map(o=>o.value);
+  const showDom = document.getElementById('part-show');
+  showDom.innerText = arr.length === 0 ? "未选择部位" : "已选：" + arr.join('、');
+}
+
+// ========== 计时器 ==========
+function loadTimer(){
+  if(store.timer.running) startTimerInterval();
+  updateTimerText();
+}
+function timerStart(){
+  if(store.timer.running) return;
+  if(store.timer.pauseAt){
+    const offset = store.timer.pauseAt - store.timer.startTs;
+    store.timer.startTs = Date.now() - offset;
+    store.timer.pauseAt = null;
+  }else{
+    store.timer.startTs = Date.now();
+  }
+  store.timer.running = true;
+  saveStore();
+  startTimerInterval();
+}
+function timerPause(){
+  if(!store.timer.running) return;
+  store.timer.pauseAt = Date.now();
+  store.timer.running = false;
+  saveStore();
+  clearInterval(timerInterval);
+}
+function timerStop(){
+  if(!store.timer.startTs) return;
+  timerPause();
+  const ms = getTimerMs();
+  const min = Math.round(ms / 60000);
+  document.getElementById('train-duration').value = min;
+}
+function timerReset(){
+  clearInterval(timerInterval);
+  store.timer = {startTs:null,pauseAt:null,running:false};
+  saveStore();
+  updateTimerText();
+}
+function getTimerMs(){
+  const t = store.timer;
+  if(!t.startTs) return 0;
+  if(t.running) return Date.now() - t.startTs;
+  if(t.pauseAt) return t.pauseAt - t.startTs;
+  return 0;
+}
+function updateTimerText(){
+  const ms = getTimerMs();
+  const s = Math.floor(ms/1000);
+  const h = String(Math.floor(s/3600)).padStart(2,'0');
+  const m = String(Math.floor((s%3600)/60)).padStart(2,'0');
+  const sec = String(s%60).padStart(2,'0');
+  const el = document.getElementById('timer-text');
+  if(el) el.innerText = `${h}:${m}:${sec}`;
+}
+function startTimerInterval(){
+  clearInterval(timerInterval);
+  timerInterval = setInterval(updateTimerText, 1000);
+}
+
+// ========== 库管理 ==========
+function renderLib(){
+  const wrap = document.getElementById('lib-list');
+  wrap.innerHTML = "";
+  const filter = document.querySelector('input[name="libFilter"]:checked').value;
+  let list = [...store.lib];
+  if(filter !== 'all') list = list.filter(x=>x.type === filter);
+  list.forEach((item)=>{
+    const realIdx = store.lib.indexOf(item);
+    const tagClass = item.type === 'exercise' ? 'exercise' : 'part';
+    const tagText = item.type === 'exercise' ? '动作' : '部位';
+    const div = document.createElement('div');
+    div.className = "item-line";
+    div.innerHTML = `
+      <div><span class="lib-tag ${tagClass}">${tagText}</span>${item.name}</div>
+      <div>
+        <button class="btn-sm" onclick="editLibItem(${realIdx})">编辑</button>
+        <button class="btn-sm danger" onclick="delLibItem(${realIdx})">删除</button>
+      </div>`;
+    wrap.appendChild(div);
+  })
+}
+function addLibItem(){
+  const type = document.getElementById('lib-type-sel').value;
+  const v = document.getElementById('new-lib-name').value.trim();
+  if(!v) return alert("请输入名称");
+  const exist = store.lib.some(x=>x.type===type && x.name===v);
+  if(exist) return alert("该名称已存在");
+  store.lib.push({type,name:v});
+  saveStore();
+  renderLib();
+  renderPartSelect();
+  renderSelectedPart();
+  document.getElementById('new-lib-name').value = "";
+}
+function editLibItem(idx){
+  const it = store.lib[idx];
+  const n = prompt("修改名称", it.name);
+  if(n && n.trim()){
+    const nn = n.trim();
+    const dup = store.lib.some((x,i)=>i!==idx && x.type===it.type && x.name===nn);
+    if(dup) return alert("重名");
+    store.lib[idx].name = nn;
+    saveStore();
+    renderLib();
+    renderPartSelect();
+    renderSelectedPart();
+  }
+}
+function delLibItem(idx){
+  const it = store.lib[idx];
+  if(!confirm(`删除【${it.name}】？`)) return;
+  store.lib.splice(idx,1);
+  saveStore();
+  renderLib();
+  renderPartSelect();
+  renderSelectedPart();
+}
+function getPartList(){
+  return store.lib.filter(x=>x.type==='part').map(x=>x.name);
+}
+function getExerciseList(){
+  return store.lib.filter(x=>x.type==='exercise').map(x=>x.name);
+}
+function renderPartSelect(){
+  const sel = document.getElementById('part-select');
+  sel.innerHTML = "";
+  getPartList().forEach(p=>{
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.innerText = p;
+    sel.appendChild(opt);
+  })
+}
+
+// ========== 动作明细 ==========
+function renderExerciseList(){
+  const wrap = document.getElementById('exercise-list');
+  wrap.innerHTML = "";
+  currentExercises.forEach((ex,eIdx)=>{
+    const exOpts = getExerciseList().map(x=>`<option value="${x}" ${ex.name===x?'selected':''}>${x}</option>`).join('');
+    let setHtml = "";
+    ex.sets.forEach((s,sIdx)=>{
+      setHtml += `
+      <div class="set-row">
+        <span>组${sIdx+1}</span>
+        <div class="weight-wrap">
+          <input type="number" step="0.5" placeholder="重量/kg" value="${s.weight??''}" onchange="setChange(${eIdx},${sIdx},'weight',this.value)">
+        </div>
+        <input type="number" placeholder="次数" value="${s.rep??''}" onchange="setChange(${eIdx},${sIdx},'rep',this.value)">
+        <input type="number" placeholder="间歇/s" value="${s.rest??''}" onchange="setChange(${eIdx},${sIdx},'rest',this.value)">
+        <div class="tag-btn ${s.warm?'on':''}" onclick="toggleWarm(${eIdx},${sIdx})">热身</div>
+        <div class="tag-btn ${s.failure?'on':''}" onclick="toggleFailure(${eIdx},${sIdx})">力竭</div>
+        <button class="btn-sm danger" onclick="delSet(${eIdx},${sIdx})">×</button>
+      </div>`;
+    })
+    const div = document.createElement('div');
+    div.className = "exercise-item";
+    div.innerHTML = `
+      <div class="exercise-head">
+        <div><b>动作${eIdx+1}</b></div>
+        <button class="btn-sm danger" onclick="delExercise(${eIdx})">删除动作</button>
+      </div>
+      <div class="ex-name-row">
+        <select onchange="exNameChange(${eIdx},this.value)">
+          <option value="">选择动作</option>
+          ${exOpts}
+        </select>
+        <input type="text" placeholder="自定义动作" value="${ex.name}" onchange="exNameChange(${eIdx},this.value)">
+      </div>
+      ${setHtml}
+      <div style="margin-top:8px">
+        <button class="btn-sm" onclick="addSet(${eIdx})">增加组数</button>
+      </div>
+    `;
+    wrap.appendChild(div);
+  })
+  calcLivePreview();
+}
+function addExercise(){
+  currentExercises.push({name:"", sets:[]});
+  renderExerciseList();
+}
+function delExercise(eIdx){
+  currentExercises.splice(eIdx,1);
+  renderExerciseList();
+}
+function exNameChange(eIdx,val){
+  currentExercises[eIdx].name = val;
+  renderExerciseList();
+}
+function addSet(eIdx){
+  const ex = currentExercises[eIdx];
+  const last = ex.sets[ex.sets.length-1];
+  let newSet = {weight:"",rep:"",rest:"",warm:false,failure:false};
+  if(last){
+    newSet.weight = last.weight;
+    newSet.rep = last.rep;
+    newSet.rest = last.rest;
+  }
+  ex.sets.push(newSet);
+  renderExerciseList();
+}
+function delSet(eIdx,sIdx){
+  currentExercises[eIdx].sets.splice(sIdx,1);
+  renderExerciseList();
+}
+function setChange(eIdx,sIdx,key,val){
+  currentExercises[eIdx].sets[sIdx][key] = val;
+  calcLivePreview();
+}
+function toggleWarm(eIdx,sIdx){
+  currentExercises[eIdx].sets[sIdx].warm = !currentExercises[eIdx].sets[sIdx].warm;
+  renderExerciseList();
+}
+function toggleFailure(eIdx,sIdx){
+  currentExercises[eIdx].sets[sIdx].failure = !currentExercises[eIdx].sets[sIdx].failure;
+  renderExerciseList();
+}
+function calcLivePreview(){
+  let totalSet = 0, vol = 0;
+  currentExercises.forEach(ex=>{
+    ex.sets.forEach(s=>{
+      if(s.warm) return;
+      const w = Number(s.weight||0), r = Number(s.rep||0);
+      if(w>0 && r>0){ totalSet++; vol += w*r; }
+    })
+  })
+  document.getElementById('live-set-count').innerText = totalSet;
+  document.getElementById('live-volume').innerText = vol;
+}
+
+// ========== 保存训练记录 ==========
+function saveRecord(){
+  const sel = document.getElementById('part-select');
+  const parts = Array.from(sel.selectedOptions).map(o=>o.value);
+  const trainDate = document.getElementById('train-date').value.trim();
+  const dur = document.getElementById('train-duration').value.trim();
+  const rpe = document.getElementById('train-rpe').value.trim();
+  const joint = document.getElementById('joint-status').value.trim();
+  const note = document.getElementById('train-note').value.trim();
+
+  if(!trainDate) return alert("请选择训练日期");
+  if(parts.length === 0) return alert("请勾选训练部位");
+
+  store.records.push({
+    id: Date.now(),
+    date: trainDate,
+    parts: parts,
+    duration: dur,
+    rpe: rpe,
+    joint: joint,
+    note: note,
+    exercises: JSON.parse(JSON.stringify(currentExercises))
+  });
+  saveStore();
+  alert("✅ 保存成功！");
+  clearRecord();
+}
+function clearRecord(){
+  document.getElementById('train-date').valueAsDate = new Date();
+  renderPartSelect();
+  renderSelectedPart();
+  document.getElementById('train-duration').value = "";
+  document.getElementById('train-rpe').value = "";
+  document.getElementById('joint-status').value = "";
+  document.getElementById('train-note').value = "";
+  currentExercises = [];
+  renderExerciseList();
+}
+
+// ========== 历史记录 ==========
+function renderHistory(){
+  const wrap = document.getElementById('history-list');
+  wrap.innerHTML = "";
+  const list = [...store.records].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  list.forEach(rec=>{
+    const parts = rec.parts || (rec.part ? [rec.part] : ['未标注']);
+    let exHtml = "";
+    (rec.exercises||[]).forEach(ex=>{
+      exHtml += `<div style="margin:6px 0;border-top:1px solid #eee;padding-top:6px">
+        <b>${ex.name||'未命名'}</b>
+        ${(ex.sets||[]).map(s=>`[${s.warm?'热身':'正式'}] ${s.weight||0}kg × ${s.rep||0} 休${s.rest||0}s ${s.failure?'【力竭】':''}`).join(' ')}
+      </div>`;
+    })
+    const div = document.createElement('div');
+    div.className = "history-item";
+    div.innerHTML = `
+      <div class="history-head" onclick="this.nextElementSibling.classList.toggle('open')">
+        ${rec.date}｜${parts.join('、')}
+      </div>
+      <div class="history-body">
+        <div>时长：${rec.duration||'-'}min｜RPE：${rec.rpe||'-'}｜关节：${rec.joint||'-'}</div>
+        <div>备注：${rec.note||'-'}</div>
+        ${exHtml}
+        <div class="action-wrap" style="margin-top:8px">
+          <button class="btn-sm danger" onclick="delRecord(${rec.id})">删除本条</button>
+        </div>
+      </div>`;
+    wrap.appendChild(div);
+  })
+}
+function delRecord(recId){
+  if(!confirm("确定删除这条训练记录？")) return;
+  store.records = store.records.filter(r=>r.id !== recId);
+  saveStore();
+  renderHistory();
+}
+
+// ========== 模板 ==========
+function renderTemplateList(){
+  const wrap = document.getElementById('template-list');
+  wrap.innerHTML = "";
+  store.templates.forEach(tpl=>{
+    const div = document.createElement('div');
+    div.className = "item-line";
+    div.innerHTML = `
+      <span>${tpl.name}</span>
+      <div>
+        <button class="btn-sm" onclick="previewTemplate(${tpl.id})">预览</button>
+        <button class="btn-sm" onclick="loadTemplate(${tpl.id})">加载</button>
+        <button class="btn-sm" onclick="renameTemplate(${tpl.id})">重命名</button>
+        <button class="btn-sm danger" onclick="delTemplate(${tpl.id})">删除</button>
+      </div>`;
+    wrap.appendChild(div);
+  })
+}
+function getTemplateById(id){
+  return store.templates.find(x=>x.id === id);
+}
+function previewTemplate(id){
+  const t = getTemplateById(id);
+  if(!t) return;
+  document.getElementById('preview-temp-title').innerText = `模板预览：${t.name}`;
+  let html = "";
+  (t.exercises||[]).forEach(ex=>{
+    html += `<div style="margin:8px 0;border-top:1px solid #eee;padding-top:8px">
+      <b>${ex.name || '未命名动作'}</b>
+      ${(ex.sets||[]).map(s=>`[${s.warm?'热身':'正式'}] ${s.weight||0}kg × ${s.rep||0} 休${s.rest||0}s ${s.failure?'【力竭】':''}`).join(' ')}
+    </div>`;
+  })
+  if(!t.exercises || !t.exercises.length) html = "<div>模板内暂无动作</div>";
+  document.getElementById('preview-temp-body').innerHTML = html;
+  document.getElementById('modal-preview-template').classList.add('open');
+}
+function openSaveTemplateModal(){
+  document.getElementById('save-temp-name').value = "";
+  document.getElementById('modal-save-temp').classList.add('open');
+}
+function confirmSaveNewTemplate(){
+  const name = document.getElementById('save-temp-name').value.trim();
+  if(!name) return alert("填写模板名称");
+  const dup = store.templates.some(x=>x.name===name);
+  if(dup) return alert("模板名称重复，请更换名字");
+  store.templates.push({
+    id: Date.now(),
+    name: name,
+    exercises: JSON.parse(JSON.stringify(currentExercises))
+  });
+  saveStore();
+  closeModal('modal-save-temp');
+  renderTemplateList();
+  alert("模板保存成功");
+}
+function loadTemplate(id){
+  const t = getTemplateById(id);
+  if(!t) return;
+  currentExercises = JSON.parse(JSON.stringify(t.exercises));
+  renderExerciseList();
+  document.querySelectorAll('.tab').forEach(tab=>{
+    if(tab.dataset.page==='page-record') tab.click();
+  })
+  alert(`已加载模板【${t.name}】`);
+}
+function renameTemplate(id){
+  const t = getTemplateById(id);
+  if(!t) return;
+  document.getElementById('rename-input').value = t.name;
+  renameTarget = {id};
+  document.getElementById('modal-rename').classList.add('open');
+}
+function confirmRename(){
+  const val = document.getElementById('rename-input').value.trim();
+  if(!val) return;
+  const t = getTemplateById(renameTarget.id);
+  if(!t) return;
+  const dup = store.templates.some(x=>x.id!==t.id && x.name===val);
+  if(dup) return alert("名称重复");
+  t.name = val;
+  saveStore();
+  closeModal('modal-rename');
+  renderTemplateList();
+}
+function delTemplate(id){
+  if(!confirm("确定删除该模板？")) return;
+  store.templates = store.templates.filter(x=>x.id !== id);
+  saveStore();
+  renderTemplateList();
+}
+
+// ========== 弹窗 ==========
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+}
+
+// ========== 报表 ==========
+function renderReport(){
+  const recs = store.records;
+  let totalSet=0,totalVol=0,totalTime=0;
+  const partMap={},weekMap={};
+  recs.forEach(r=>{
+    const d = new Date(r.date);
+    const wk = getWeekKey(d);
+    const parts = r.parts || (r.part ? [r.part] : []);
+    parts.forEach(p=>partMap[p] = (partMap[p]||0)+1);
+    weekMap[wk] = (weekMap[wk]||0)+1;
+    if(r.duration) totalTime += Number(r.duration);
+    (r.exercises||[]).forEach(ex=>{
+      if(!ex.name) return;
+      (ex.sets||[]).forEach(s=>{
+        if(s.warm) return;
+        const w=Number(s.weight||0),rep=Number(s.rep||0);
+        if(w>0&&rep>0){ totalSet++; totalVol += w*rep; }
+      })
+    })
+  })
+  document.getElementById('report-summary').innerHTML = `
+    <div>训练次数：${recs.length}</div>
+    <div>正式组数：${totalSet}</div>
+    <div>总容量：${totalVol} kg</div>
+    <div>总时长：${totalTime} 分钟</div>
+  `;
+  renderBarChart("chart-part", partMap);
+  renderBarChart("chart-week", weekMap);
+}
+function getWeekKey(d){
+  const y = d.getFullYear();
+  const fd = new Date(y,0,1);
+  const day = Math.floor((d-fd)/(24*3600*1000));
+  const w = Math.floor(day/7)+1;
+  return `${y}-W${w}`;
+}
+function renderBarChart(containerId,dataMap){
+  const wrap = document.getElementById(containerId);
+  const entries = Object.entries(dataMap).sort((a,b)=>b[1]-a[1]);
+  if(!entries.length){wrap.innerHTML="<div>暂无数据</div>";return}
+  const max = Math.max(...entries.map(x=>x[1]));
+  let svg = `<svg height="${entries.length*32+20}" viewBox="0 0 420 ${entries.length*32+20}">`;
+  entries.forEach(([k,v],i)=>{
+    const w = (v/max)*320;
+    svg += `<rect x="80" y="${i*30+5}" width="${w}" height="20" fill="#2563eb" rx="3"></rect>`;
+    svg += `<text x="75" y="${i*30+19}" text-anchor="end" font-size="12">${k}</text>`;
+    svg += `<text x="${80+w+4}" y="${i*30+19}" font-size="12">${v}</text>`;
+  })
+  svg += "</svg>";
+  wrap.innerHTML = svg;
+}
+function reportPrint(){
+  const p = document.getElementById('page-report').cloneNode(true);
+  const w = window.open();
+  w.document.body.innerHTML = p.innerHTML;
+  w.print();
+}
+function exportCsv(){
+  let csv = "日期,部位,动作,组,重量(kg),次数,间歇(s),热身,力竭\n";
+  store.records.forEach(r=>{
+    const parts = (r.parts||[]).join('|');
+    (r.exercises||[]).forEach((ex,ei)=>{
+      (ex.sets||[]).forEach((s,si)=>{
+        csv += `${r.date},${parts},${ex.name},${si+1},${s.weight},${s.rep},${s.rest},${s.warm},${s.failure}\n`
+      })
+    })
+  })
+  download("train.csv",csv,"text/csv");
+}
+
+// ========== 备份导入 ==========
+function exportAll(){
+  download("train-backup.json", JSON.stringify(store,null,2), "application/json");
+}
+function importAll(){
+  document.getElementById('import-file').click();
+  document.getElementById('import-file').onchange = async e=>{
+    const f = e.target.files[0];
+    const txt = await f.text();
+    try {
+      store = JSON.parse(txt);
+      saveStore();
+      alert("导入完成，页面将刷新");
+      location.reload();
+    } catch(e){
+      alert("导入失败，文件格式错误");
+    }
+  }
+}
+function download(name,content,type){
+  const blob = new Blob([content],{type});
+  const url = URL.createObjectURL(url);
+  const a = document.createElement('a');
+  a.href = url;a.download = name;a.click();
+  URL.revokeObjectURL(url);
+}
+
+init();
+</script>
+</body>
+</html>
