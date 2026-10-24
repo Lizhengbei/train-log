@@ -30,9 +30,13 @@ button.success{background:#16a34a;color:#fff;border-color:#16a34a}
 .action-wrap{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 .exercise-item{border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin:10px 0;background:#fbfcfe}
 .exercise-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.set-row{display:flex;gap:4px;align-items:center;flex-wrap:nowrap;overflow-x:auto;padding:4px 0}
-.tag-btn{padding:3px 5px;border-radius:4px;font-size:12px;border:1px solid #aaa;cursor:pointer;white-space:nowrap}
+.set-row{padding:6px 0;border-bottom:1px solid #f1f5f9}
+.set-input-row{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;overflow-x:auto;padding:2px 0}
+.set-tag-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:4px 0 2px}
+.tag-btn{padding:3px 6px;border-radius:4px;font-size:12px;border:1px solid #aaa;cursor:pointer;white-space:nowrap}
 .tag-btn.on{background:#2563eb;color:#fff;border-color:#2563eb}
+.tag-btn.assist.on{background:#f59e0b;color:#fff;border-color:#f59e0b}
+.tag-btn.uni.on{background:#8b5cf6;color:#fff;border-color:#8b5cf6}
 .preview-box{background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:10px;color:#065f46}
 .history-item{border:1px solid #e5e7eb;border-radius:8px;margin-bottom:10px;overflow:hidden}
 .history-head{padding:10px;background:#f9fafb;cursor:pointer;font-weight:500}
@@ -68,15 +72,34 @@ svg{width:100%;height:auto}
   flex:1;
 }
 .ex-name-row{display:flex;gap:8px;align-items:center}
-.ex-name-row select{flex:0 0 140px}
+.ex-name-row select{flex:0 0 160px}
 .ex-name-row input{flex:1;min-width:140px;max-width:none}
+.chart-select{margin-bottom:8px}
+.chart-select select{min-width:160px;max-width:none}
+/* 休息倒计时浮层 */
+.rest-timer-bar{
+  position:fixed;top:0;left:0;right:0;background:#2563eb;color:#fff;padding:8px;text-align:center;font-weight:600;z-index:1001;transform:translateY(-100%);transition:transform .2s;
+}
+.rest-timer-bar.show{transform:translateY(0)}
+.rest-btn{font-size:12px;padding:3px 6px}
+.big-three-card{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+.big-three-item{background:#f8fafc;border-radius:8px;padding:10px;text-align:center}
+.big-three-item .name{font-size:13px;color:#64748b;margin-bottom:4px}
+.big-three-item .val{font-size:18px;font-weight:700;color:#1e40af}
+.big-three-item .sub{font-size:12px;color:#64748b;margin-top:2px}
 </style>
 </head>
 <body>
+<!-- 组间休息倒计时条 -->
+<div class="rest-timer-bar" id="restTimerBar">组间休息：<span id="restTime">60</span>s</div>
+
 <div class="page active" id="page-record">
   <div class="card">
-    <h3>训练日期</h3>
-    <input type="date" id="train-date">
+    <h3>训练信息</h3>
+    <div class="row">
+      <label>日期：<input type="date" id="train-date"></label>
+      <label>当日体重(kg)：<input type="number" step="0.1" id="train-weight" placeholder="可选"></label>
+    </div>
   </div>
 
   <div class="card">
@@ -93,7 +116,7 @@ svg{width:100%;height:auto}
   <div class="card">
     <h3>训练部位</h3>
     <div class="part-show-box" id="part-show">未选择部位</div>
-    <select id="part-select" class="multiselect" multiple size="4" onchange="renderSelectedPart()"></select>
+    <select id="part-select" class="multiselect" multiple size="5" onchange="renderSelectedPart()"></select>
   </div>
 
   <div class="card">
@@ -106,7 +129,7 @@ svg{width:100%;height:auto}
 
   <div class="card">
     <div class="preview-box">
-      实时统计｜正式组数：<span id="live-set-count">0</span> ｜正式容量：<span id="live-volume">0</span> kg
+      正式<span id="live-set-count">0</span>组｜热身<span id="live-warm-count">0</span>组｜总容量：<span id="live-volume">0</span> kg
     </div>
   </div>
 
@@ -148,6 +171,13 @@ svg{width:100%;height:auto}
   </div>
   <div class="card">
     <h3>训练历史</h3>
+    <div class="row">
+      <label>部位筛选：
+        <select id="history-part-filter" onchange="renderHistory()" style="min-width:120px;max-width:none">
+          <option value="">全部</option>
+        </select>
+      </label>
+    </div>
     <div id="history-list"></div>
   </div>
 </div>
@@ -184,17 +214,50 @@ svg{width:100%;height:auto}
     <h3>汇总统计</h3>
     <div id="report-summary"></div>
   </div>
+
+  <div class="card">
+    <h3>三大项1RM估算（Epley公式）</h3>
+    <div class="big-three-card" id="bigThreeCard">
+      <div class="big-three-item">
+        <div class="name">杠铃深蹲</div>
+        <div class="val" id="bt-squat">-</div>
+        <div class="sub" id="bt-squat-sub">暂无数据</div>
+      </div>
+      <div class="big-three-item">
+        <div class="name">杠铃平板卧推</div>
+        <div class="val" id="bt-bench">-</div>
+        <div class="sub" id="bt-bench-sub">暂无数据</div>
+      </div>
+      <div class="big-three-item">
+        <div class="name">硬拉</div>
+        <div class="val" id="bt-deadlift">-</div>
+        <div class="sub" id="bt-deadlift-sub">暂无数据</div>
+      </div>
+    </div>
+  </div>
+
   <div class="card">
     <h3>部位分布</h3>
     <div class="chart-wrap" id="chart-part"></div>
   </div>
   <div class="card">
-    <h3>周训练量</h3>
+    <h3>周训练趋势</h3>
     <div class="chart-wrap" id="chart-week"></div>
   </div>
   <div class="card">
     <h3>动作进步曲线</h3>
+    <div class="chart-select">
+      <select id="progress-ex-select" onchange="renderProgressChart()"></select>
+    </div>
     <div class="chart-wrap" id="chart-progress"></div>
+  </div>
+  <div class="card">
+    <h3>动作容量排行</h3>
+    <div class="chart-wrap" id="chart-rank"></div>
+  </div>
+  <div class="card">
+    <h3>体重变化趋势</h3>
+    <div class="chart-wrap" id="chart-weight"></div>
   </div>
   <div class="card">
     <div class="action-wrap">
@@ -244,31 +307,72 @@ svg{width:100%;height:auto}
   </div>
 </div>
 
+<div class="modal" id="modal-rest">
+  <div class="modal-content">
+    <h3>组间休息</h3>
+    <div class="action-wrap" style="justify-content:center;gap:8px">
+      <button class="btn-sm primary" onclick="startRest(30)">30秒</button>
+      <button class="btn-sm primary" onclick="startRest(60)">60秒</button>
+      <button class="btn-sm primary" onclick="startRest(90)">90秒</button>
+      <button class="btn-sm primary" onclick="startRest(120)">120秒</button>
+    </div>
+    <div class="row" style="justify-content:center;margin-top:10px">
+      <label>自定义(秒)：<input type="number" id="restCustom" style="min-width:80px"></label>
+      <button class="btn-sm" onclick="startRestCustom()">开始</button>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-rest')">取消</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let store = {
   records:[],
   lib:[
-    {type:"exercise",name:"杠铃深蹲"},
-    {type:"exercise",name:"硬拉"},
-    {type:"exercise",name:"卧推"},
-    {type:"exercise",name:"推举"},
-    {type:"exercise",name:"引体向上"},
-    {type:"exercise",name:"划船"},
-    {type:"exercise",name:"臀推"},
-    {type:"exercise",name:"腿举"},
-    {type:"exercise",name:"哑铃卧推"},
-    {type:"exercise",name:"肩推"},
-    {type:"exercise",name:"弯举"},
-    {type:"exercise",name:"绳索下压"},
-    {type:"exercise",name:"罗马尼亚硬拉"},
-    {type:"part",name:"胸"},
-    {type:"part",name:"背"},
-    {type:"part",name:"肩"},
-    {type:"part",name:"手臂"},
-    {type:"part",name:"腿"},
-    {type:"part",name:"核心"},
-    {type:"part",name:"臀"},
-    {type:"part",name:"有氧"}
+    // 部位
+    {type:"part",name:"胸"},{type:"part",name:"上胸"},{type:"part",name:"背"},{type:"part",name:"阔背肌"},
+    {type:"part",name:"肩"},{type:"part",name:"肩前束"},{type:"part",name:"肩中束"},{type:"part",name:"肩后束"},
+    {type:"part",name:"肱二头肌"},{type:"part",name:"肱三头肌"},{type:"part",name:"前臂"},
+    {type:"part",name:"股四头肌"},{type:"part",name:"腘绳肌"},{type:"part",name:"小腿"},
+    {type:"part",name:"臀"},{type:"part",name:"核心"},{type:"part",name:"有氧"},
+    // 胸部动作
+    {type:"exercise",name:"杠铃平板卧推",part:"胸"},{type:"exercise",name:"杠铃上斜卧推",part:"上胸"},
+    {type:"exercise",name:"哑铃平板卧推",part:"胸"},{type:"exercise",name:"哑铃上斜卧推",part:"上胸"},{type:"exercise",name:"哑铃下斜卧推",part:"胸"},
+    {type:"exercise",name:"坐姿器械推胸",part:"胸"},{type:"exercise",name:"上斜器械推胸",part:"上胸"},
+    {type:"exercise",name:"蝴蝶机夹胸",part:"胸"},{type:"exercise",name:"坐姿夹胸",part:"胸"},
+    {type:"exercise",name:"双杠臂屈伸",part:"胸"},{type:"exercise",name:"俯卧撑",part:"胸"},
+    {type:"exercise",name:"上斜俯卧撑",part:"上胸"},{type:"exercise",name:"下斜俯卧撑",part:"胸"},
+    // 背部动作
+    {type:"exercise",name:"引体向上",part:"背"},{type:"exercise",name:"辅助引体向上",part:"背"},
+    {type:"exercise",name:"高位下拉",part:"阔背肌"},{type:"exercise",name:"宽握高位下拉",part:"阔背肌"},{type:"exercise",name:"窄握高位下拉",part:"背"},
+    {type:"exercise",name:"坐姿划船器械",part:"背"},{type:"exercise",name:"T杠划船",part:"背"},
+    {type:"exercise",name:"杠铃俯身划船",part:"背"},{type:"exercise",name:"哑铃单臂划船",part:"背"},
+    {type:"exercise",name:"直臂下压",part:"阔背肌"},{type:"exercise",name:"硬拉",part:"背"},
+    {type:"exercise",name:"罗马尼亚硬拉",part:"腘绳肌"},{type:"exercise",name:"山羊挺身",part:"中下背"},
+    // 肩部动作
+    {type:"exercise",name:"杠铃推举",part:"肩"},{type:"exercise",name:"哑铃推举",part:"肩"},{type:"exercise",name:"坐姿器械肩推",part:"肩"},
+    {type:"exercise",name:"阿诺德推举",part:"肩前束"},{type:"exercise",name:"哑铃侧平举",part:"肩中束"},{type:"exercise",name:"哑铃前平举",part:"肩前束"},
+    {type:"exercise",name:"俯身飞鸟",part:"肩后束"},{type:"exercise",name:"反向蝴蝶机飞鸟",part:"肩后束"},{type:"exercise",name:"面拉",part:"肩后束"},
+    // 手臂动作
+    {type:"exercise",name:"杠铃弯举",part:"肱二头肌"},{type:"exercise",name:"哑铃弯举",part:"肱二头肌"},{type:"exercise",name:"锤式弯举",part:"肱二头肌"},
+    {type:"exercise",name:"集中弯举",part:"肱二头肌"},{type:"exercise",name:"二头弯举器械",part:"肱二头肌"},
+    {type:"exercise",name:"绳索下压",part:"肱三头肌"},{type:"exercise",name:"哑铃颈后臂屈伸",part:"肱三头肌"},
+    {type:"exercise",name:"窄距卧推",part:"肱三头肌"},{type:"exercise",name:"腕弯举",part:"前臂"},
+    // 腿部动作
+    {type:"exercise",name:"杠铃深蹲",part:"股四头肌"},{type:"exercise",name:"前蹲",part:"股四头肌"},{type:"exercise",name:"哈克深蹲",part:"股四头肌"},
+    {type:"exercise",name:"保加利亚分腿蹲",part:"股四头肌"},{type:"exercise",name:"箭步蹲",part:"股四头肌"},
+    {type:"exercise",name:"腿举",part:"股四头肌"},{type:"exercise",name:"坐姿腿屈伸",part:"股四头肌"},
+    {type:"exercise",name:"俯卧腿弯举",part:"腘绳肌"},{type:"exercise",name:"坐姿腿弯举",part:"腘绳肌"},
+    {type:"exercise",name:"提踵",part:"小腿"},{type:"exercise",name:"坐姿提踵",part:"小腿"},
+    // 臀部动作
+    {type:"exercise",name:"臀推",part:"臀"},{type:"exercise",name:"杠铃臀桥",part:"臀"},{type:"exercise",name:"髋外展器械",part:"臀"},{type:"exercise",name:"髋推",part:"臀"},
+    // 核心
+    {type:"exercise",name:"平板支撑",part:"核心"},{type:"exercise",name:"卷腹",part:"核心"},{type:"exercise",name:"悬垂举腿",part:"核心"},
+    {type:"exercise",name:"俄罗斯转体",part:"核心"},{type:"exercise",name:"仰卧举腿",part:"核心"},
+    // 有氧
+    {type:"exercise",name:"跑步",part:"有氧"},{type:"exercise",name:"椭圆机",part:"有氧"},
+    {type:"exercise",name:"划船机",part:"有氧"},{type:"exercise",name:"跳绳",part:"有氧"},{type:"exercise",name:"单车",part:"有氧"}
   ],
   templates:[],
   timer:{startTs:null,pauseAt:null,running:false}
@@ -276,6 +380,7 @@ let store = {
 let currentExercises = [];
 let renameTarget = null;
 let timerInterval = null;
+let restTimer = null;
 
 function init(){
   loadStore();
@@ -283,6 +388,7 @@ function init(){
   document.getElementById('train-date').valueAsDate = new Date();
   renderLib();
   renderPartSelect();
+  renderHistoryPartFilter();
   renderSelectedPart();
   renderTemplateList();
   renderHistory();
@@ -312,10 +418,18 @@ function bindTab(){
       const pid = tab.dataset.page;
       document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
       document.getElementById(pid).classList.add('active');
-      if(pid === 'page-history') renderHistory();
+      if(pid === 'page-history'){
+        renderHistoryPartFilter();
+        renderHistory();
+      }
       if(pid === 'page-template') renderTemplateList();
       if(pid === 'page-exercise-lib') renderLib();
       if(pid === 'page-report') renderReport();
+      if(pid === 'page-record'){
+        renderPartSelect();
+        renderSelectedPart();
+        renderExerciseList();
+      }
     }
   })
 }
@@ -326,7 +440,7 @@ function renderSelectedPart(){
   showDom.innerText = arr.length === 0 ? "未选择部位" : "已选：" + arr.join('、');
 }
 
-// ========== 计时器 ==========
+// ========== 训练计时器 ==========
 function loadTimer(){
   if(store.timer.running) startTimerInterval();
   updateTimerText();
@@ -385,6 +499,52 @@ function startTimerInterval(){
   timerInterval = setInterval(updateTimerText, 1000);
 }
 
+// ========== 组间休息 ==========
+function openRestModal(){
+  document.getElementById('modal-rest').classList.add('open');
+}
+function startRest(sec){
+  closeModal('modal-rest');
+  runRestTimer(sec);
+}
+function startRestCustom(){
+  const v = Number(document.getElementById('restCustom').value);
+  if(v<=0) return alert('请输入有效时间');
+  closeModal('modal-rest');
+  runRestTimer(v);
+}
+function runRestTimer(sec){
+  clearInterval(restTimer);
+  const bar = document.getElementById('restTimerBar');
+  const num = document.getElementById('restTime');
+  let left = sec;
+  num.textContent = left;
+  bar.classList.add('show');
+  restTimer = setInterval(()=>{
+    left--;
+    num.textContent = left;
+    if(left<=0){
+      clearInterval(restTimer);
+      bar.classList.remove('show');
+      beep();
+      if(navigator.vibrate) navigator.vibrate([200,100,200]);
+    }
+  },1000);
+}
+function beep(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.value = 0.1;
+    osc.start();
+    setTimeout(()=>{osc.stop();ctx.close()}, 200);
+  }catch(e){}
+}
+
 // ========== 库管理 ==========
 function renderLib(){
   const wrap = document.getElementById('lib-list');
@@ -417,6 +577,7 @@ function addLibItem(){
   saveStore();
   renderLib();
   renderPartSelect();
+  renderHistoryPartFilter();
   renderSelectedPart();
   document.getElementById('new-lib-name').value = "";
 }
@@ -431,6 +592,7 @@ function editLibItem(idx){
     saveStore();
     renderLib();
     renderPartSelect();
+    renderHistoryPartFilter();
     renderSelectedPart();
   }
 }
@@ -441,13 +603,14 @@ function delLibItem(idx){
   saveStore();
   renderLib();
   renderPartSelect();
+  renderHistoryPartFilter();
   renderSelectedPart();
 }
 function getPartList(){
   return store.lib.filter(x=>x.type==='part').map(x=>x.name);
 }
 function getExerciseList(){
-  return store.lib.filter(x=>x.type==='exercise').map(x=>x.name);
+  return store.lib.filter(x=>x.type==='exercise');
 }
 function renderPartSelect(){
   const sel = document.getElementById('part-select');
@@ -459,26 +622,56 @@ function renderPartSelect(){
     sel.appendChild(opt);
   })
 }
+function renderHistoryPartFilter(){
+  const sel = document.getElementById('history-part-filter');
+  const parts = getPartList();
+  sel.innerHTML = '<option value="">全部</option>' + parts.map(p=>`<option value="${p}">${p}</option>`).join('');
+}
 
-// ========== 动作明细 ==========
+// ========== 动作明细（两行布局） ==========
 function renderExerciseList(){
   const wrap = document.getElementById('exercise-list');
   wrap.innerHTML = "";
+  const exList = getExerciseList();
+  const groups = {};
+  exList.forEach(ex=>{
+    const p = ex.part || '其他';
+    if(!groups[p]) groups[p] = [];
+    groups[p].push(ex);
+  })
+
   currentExercises.forEach((ex,eIdx)=>{
-    const exOpts = getExerciseList().map(x=>`<option value="${x}" ${ex.name===x?'selected':''}>${x}</option>`).join('');
+    let optHtml = '';
+    Object.keys(groups).forEach(p=>{
+      optHtml += `<optgroup label="${p}">`;
+      groups[p].forEach(item=>{
+        optHtml += `<option value="${item.name}" ${ex.name===item.name?'selected':''}>${item.name}</option>`;
+      })
+      optHtml += `</optgroup>`;
+    })
+
     let setHtml = "";
     ex.sets.forEach((s,sIdx)=>{
+      const isAssist = s.assist || (s.weight && Number(s.weight) < 0);
+      const isUni = s.unilateral;
       setHtml += `
       <div class="set-row">
-        <span>组${sIdx+1}</span>
-        <div class="weight-wrap">
-          <input type="number" step="0.5" placeholder="重量/kg" value="${s.weight??''}" onchange="setChange(${eIdx},${sIdx},'weight',this.value)">
+        <div class="set-input-row">
+          <span style="min-width:32px">组${sIdx+1}</span>
+          <div class="weight-wrap">
+            <input type="number" step="0.5" placeholder="重量/kg" value="${s.weight??''}" onchange="setChange(${eIdx},${sIdx},'weight',this.value)">
+          </div>
+          <input type="number" placeholder="次数" value="${s.rep??''}" onchange="setChange(${eIdx},${sIdx},'rep',this.value)">
+          <input type="number" placeholder="间歇/s" value="${s.rest??''}" onchange="setChange(${eIdx},${sIdx},'rest',this.value)">
         </div>
-        <input type="number" placeholder="次数" value="${s.rep??''}" onchange="setChange(${eIdx},${sIdx},'rep',this.value)">
-        <input type="number" placeholder="间歇/s" value="${s.rest??''}" onchange="setChange(${eIdx},${sIdx},'rest',this.value)">
-        <div class="tag-btn ${s.warm?'on':''}" onclick="toggleWarm(${eIdx},${sIdx})">热身</div>
-        <div class="tag-btn ${s.failure?'on':''}" onclick="toggleFailure(${eIdx},${sIdx})">力竭</div>
-        <button class="btn-sm danger" onclick="delSet(${eIdx},${sIdx})">×</button>
+        <div class="set-tag-row">
+          <div class="tag-btn uni ${isUni?'on':''}" onclick="toggleUni(${eIdx},${sIdx})">单侧</div>
+          <div class="tag-btn assist ${isAssist?'on':''}" onclick="toggleAssist(${eIdx},${sIdx})">辅助</div>
+          <div class="tag-btn ${s.warm?'on':''}" onclick="toggleWarm(${eIdx},${sIdx})">热身</div>
+          <div class="tag-btn ${s.failure?'on':''}" onclick="toggleFailure(${eIdx},${sIdx})">力竭</div>
+          <button class="btn-sm rest-btn" onclick="openRestModal()">休息</button>
+          <button class="btn-sm danger" onclick="delSet(${eIdx},${sIdx})">删除</button>
+        </div>
       </div>`;
     })
     const div = document.createElement('div');
@@ -491,7 +684,7 @@ function renderExerciseList(){
       <div class="ex-name-row">
         <select onchange="exNameChange(${eIdx},this.value)">
           <option value="">选择动作</option>
-          ${exOpts}
+          ${optHtml}
         </select>
         <input type="text" placeholder="自定义动作" value="${ex.name}" onchange="exNameChange(${eIdx},this.value)">
       </div>
@@ -519,11 +712,13 @@ function exNameChange(eIdx,val){
 function addSet(eIdx){
   const ex = currentExercises[eIdx];
   const last = ex.sets[ex.sets.length-1];
-  let newSet = {weight:"",rep:"",rest:"",warm:false,failure:false};
+  let newSet = {weight:"",rep:"",rest:"",warm:false,failure:false,assist:false,unilateral:false};
   if(last){
     newSet.weight = last.weight;
     newSet.rep = last.rep;
     newSet.rest = last.rest;
+    newSet.assist = last.assist;
+    newSet.unilateral = last.unilateral;
   }
   ex.sets.push(newSet);
   renderExerciseList();
@@ -544,17 +739,43 @@ function toggleFailure(eIdx,sIdx){
   currentExercises[eIdx].sets[sIdx].failure = !currentExercises[eIdx].sets[sIdx].failure;
   renderExerciseList();
 }
+function toggleAssist(eIdx,sIdx){
+  currentExercises[eIdx].sets[sIdx].assist = !currentExercises[eIdx].sets[sIdx].assist;
+  renderExerciseList();
+}
+function toggleUni(eIdx,sIdx){
+  currentExercises[eIdx].sets[sIdx].unilateral = !currentExercises[eIdx].sets[sIdx].unilateral;
+  renderExerciseList();
+}
+function calcSetEffectiveWeight(s, bodyWeight){
+  let w = Number(s.weight||0);
+  const isAssist = s.assist || w < 0;
+  if(isAssist){
+    if(!bodyWeight) return 0;
+    return Math.max(0, bodyWeight - Math.abs(w));
+  }
+  return Math.abs(w);
+}
+function calcEpley1RM(weight, reps){
+  const w = Number(weight||0);
+  const r = Number(reps||0);
+  if(w<=0 || r<=0) return 0;
+  return w * (1 + r/30);
+}
 function calcLivePreview(){
-  let totalSet = 0, vol = 0;
+  const bodyWeight = Number(document.getElementById('train-weight').value||0);
+  let totalSet = 0, warmSet = 0, vol = 0;
   currentExercises.forEach(ex=>{
     ex.sets.forEach(s=>{
-      if(s.warm) return;
-      const w = Number(s.weight||0), r = Number(s.rep||0);
+      if(s.warm){ warmSet++; return; }
+      const w = calcSetEffectiveWeight(s, bodyWeight);
+      const r = Number(s.rep||0);
       if(w>0 && r>0){ totalSet++; vol += w*r; }
     })
   })
   document.getElementById('live-set-count').innerText = totalSet;
-  document.getElementById('live-volume').innerText = vol;
+  document.getElementById('live-warm-count').innerText = warmSet;
+  document.getElementById('live-volume').innerText = Math.round(vol*10)/10;
 }
 
 // ========== 保存训练记录 ==========
@@ -562,6 +783,7 @@ function saveRecord(){
   const sel = document.getElementById('part-select');
   const parts = Array.from(sel.selectedOptions).map(o=>o.value);
   const trainDate = document.getElementById('train-date').value.trim();
+  const bodyWeight = document.getElementById('train-weight').value.trim();
   const dur = document.getElementById('train-duration').value.trim();
   const rpe = document.getElementById('train-rpe').value.trim();
   const joint = document.getElementById('joint-status').value.trim();
@@ -573,6 +795,7 @@ function saveRecord(){
   store.records.push({
     id: Date.now(),
     date: trainDate,
+    bodyWeight: bodyWeight,
     parts: parts,
     duration: dur,
     rpe: rpe,
@@ -585,7 +808,9 @@ function saveRecord(){
   clearRecord();
 }
 function clearRecord(){
+  if(!confirm("确定清空当前所有训练内容？")) return;
   document.getElementById('train-date').valueAsDate = new Date();
+  document.getElementById('train-weight').value = "";
   renderPartSelect();
   renderSelectedPart();
   document.getElementById('train-duration').value = "";
@@ -596,36 +821,76 @@ function clearRecord(){
   renderExerciseList();
 }
 
-// ========== 历史记录 ==========
+// ========== 历史记录（含复刻编辑） ==========
 function renderHistory(){
   const wrap = document.getElementById('history-list');
+  const filterPart = document.getElementById('history-part-filter').value;
   wrap.innerHTML = "";
-  const list = [...store.records].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  let list = [...store.records].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(filterPart){
+    list = list.filter(r=> (r.parts||[]).includes(filterPart) );
+  }
   list.forEach(rec=>{
     const parts = rec.parts || (rec.part ? [rec.part] : ['未标注']);
     let exHtml = "";
     (rec.exercises||[]).forEach(ex=>{
       exHtml += `<div style="margin:6px 0;border-top:1px solid #eee;padding-top:6px">
         <b>${ex.name||'未命名'}</b>
-        ${(ex.sets||[]).map(s=>`[${s.warm?'热身':'正式'}] ${s.weight||0}kg × ${s.rep||0} 休${s.rest||0}s ${s.failure?'【力竭】':''}`).join(' ')}
+        ${(ex.sets||[]).map(s=>{
+          const isAssist = s.assist || (s.weight && Number(s.weight)<0);
+          const isUni = s.unilateral;
+          return `[${s.warm?'热身':'正式'}] ${isUni?'单侧 ':''}${isAssist?'辅助':''}${Math.abs(s.weight||0)}kg × ${s.rep||0} 休${s.rest||0}s ${s.failure?'【力竭】':''}`
+        }).join(' ')}
       </div>`;
     })
     const div = document.createElement('div');
     div.className = "history-item";
     div.innerHTML = `
       <div class="history-head" onclick="this.nextElementSibling.classList.toggle('open')">
-        ${rec.date}｜${parts.join('、')}
+        ${rec.date}｜${parts.join('、')}${rec.bodyWeight?` ｜体重${rec.bodyWeight}kg`:''}
       </div>
       <div class="history-body">
         <div>时长：${rec.duration||'-'}min｜RPE：${rec.rpe||'-'}｜关节：${rec.joint||'-'}</div>
         <div>备注：${rec.note||'-'}</div>
         ${exHtml}
         <div class="action-wrap" style="margin-top:8px">
+          <button class="btn-sm" onclick="duplicateRecord(${rec.id})">复刻编辑</button>
           <button class="btn-sm danger" onclick="delRecord(${rec.id})">删除本条</button>
         </div>
       </div>`;
     wrap.appendChild(div);
   })
+}
+function duplicateRecord(recId){
+  const rec = store.records.find(r=>r.id === recId);
+  if(!rec) return;
+  // 完整回填到记录页
+  document.getElementById('train-date').value = rec.date;
+  document.getElementById('train-weight').value = rec.bodyWeight || '';
+  document.getElementById('train-duration').value = rec.duration || '';
+  document.getElementById('train-rpe').value = rec.rpe || '';
+  document.getElementById('joint-status').value = rec.joint || '';
+  document.getElementById('train-note').value = rec.note || '';
+  
+  // 回填部位选中
+  renderPartSelect();
+  const sel = document.getElementById('part-select');
+  Array.from(sel.options).forEach(opt=>{
+    opt.selected = (rec.parts||[]).includes(opt.value);
+  });
+  renderSelectedPart();
+
+  // 回填动作
+  currentExercises = JSON.parse(JSON.stringify(rec.exercises || []));
+  renderExerciseList();
+  
+  // 重置计时器
+  timerReset();
+  
+  // 跳转到记录页
+  document.querySelectorAll('.tab').forEach(tab=>{
+    if(tab.dataset.page==='page-record') tab.click();
+  });
 }
 function delRecord(recId){
   if(!confirm("确定删除这条训练记录？")) return;
@@ -733,32 +998,71 @@ function closeModal(id){
 // ========== 报表 ==========
 function renderReport(){
   const recs = store.records;
-  let totalSet=0,totalVol=0,totalTime=0;
-  const partMap={},weekMap={};
+  let totalSet=0,totalVol=0,totalTime=0,maxVol=0;
+  const dateSet = new Set();
+  const partMap={}, weekMap={}, exVolMap={}, weightList=[];
+
   recs.forEach(r=>{
+    dateSet.add(r.date);
     const d = new Date(r.date);
     const wk = getWeekKey(d);
     const parts = r.parts || (r.part ? [r.part] : []);
     parts.forEach(p=>partMap[p] = (partMap[p]||0)+1);
-    weekMap[wk] = (weekMap[wk]||0)+1;
+    weekMap[wk] = weekMap[wk] || {count:0, vol:0};
+    weekMap[wk].count++;
     if(r.duration) totalTime += Number(r.duration);
+    if(r.bodyWeight) weightList.push({date:r.date, w:Number(r.bodyWeight)});
+
+    let dayVol = 0;
     (r.exercises||[]).forEach(ex=>{
       if(!ex.name) return;
+      exVolMap[ex.name] = exVolMap[ex.name] || 0;
       (ex.sets||[]).forEach(s=>{
         if(s.warm) return;
-        const w=Number(s.weight||0),rep=Number(s.rep||0);
-        if(w>0&&rep>0){ totalSet++; totalVol += w*rep; }
+        const w = Math.abs(Number(s.weight||0));
+        const rep = Number(s.rep||0);
+        if(w>0 && rep>0){
+          totalSet++;
+          totalVol += w*rep;
+          dayVol += w*rep;
+          exVolMap[ex.name] += w*rep;
+        }
       })
     })
+    if(dayVol > maxVol) maxVol = dayVol;
+    weekMap[wk].vol += dayVol;
   })
+
+  const days = dateSet.size;
+  const avgTime = days>0 ? Math.round(totalTime/days) : 0;
+  const avgVol = days>0 ? Math.round(totalVol/days) : 0;
+
+  // 本周上周对比
+  const thisWeek = getWeekKey(new Date());
+  const lastWeek = getWeekKey(new Date(Date.now()-7*86400000));
+  const thisVol = weekMap[thisWeek] ? weekMap[thisWeek].vol : 0;
+  const lastVol = weekMap[lastWeek] ? weekMap[lastWeek].vol : 0;
+  let compareText = '';
+  if(lastVol>0){
+    const diff = ((thisVol - lastVol)/lastVol*100).toFixed(1);
+    compareText = `｜本周容量 ${diff>0?'+':''}${diff}% vs上周`;
+  }
+
   document.getElementById('report-summary').innerHTML = `
-    <div>训练次数：${recs.length}</div>
-    <div>正式组数：${totalSet}</div>
-    <div>总容量：${totalVol} kg</div>
-    <div>总时长：${totalTime} 分钟</div>
+    <div>训练次数：${recs.length} 次｜训练天数：${days} 天 ${compareText}</div>
+    <div>正式组数：${totalSet} 组｜总容量：${Math.round(totalVol)} kg</div>
+    <div>总时长：${totalTime} 分钟｜平均每次：${avgTime} 分钟</div>
+    <div>平均每次容量：${avgVol} kg｜单次最大容量：${Math.round(maxVol)} kg</div>
   `;
+
+  // 三大项1RM
+  renderBigThree();
+
   renderBarChart("chart-part", partMap);
-  renderBarChart("chart-week", weekMap);
+  renderWeekChart("chart-week", weekMap);
+  renderProgressSelect(exVolMap);
+  renderRankChart("chart-rank", exVolMap);
+  renderWeightChart("chart-weight", weightList);
 }
 function getWeekKey(d){
   const y = d.getFullYear();
@@ -767,18 +1071,196 @@ function getWeekKey(d){
   const w = Math.floor(day/7)+1;
   return `${y}-W${w}`;
 }
+function renderBigThree(){
+  const items = [
+    {key:'杠铃深蹲', id:'squat'},
+    {key:'杠铃平板卧推', id:'bench'},
+    {key:'硬拉', id:'deadlift'}
+  ];
+  items.forEach(item=>{
+    let max1RM = 0, latest1RM = 0, latestDate = '';
+    store.records.forEach(r=>{
+      const bw = Number(r.bodyWeight||0);
+      (r.exercises||[]).forEach(ex=>{
+        if(ex.name !== item.key) return;
+        (ex.sets||[]).forEach(s=>{
+          if(s.warm || s.assist || s.unilateral) return;
+          const w = Math.abs(Number(s.weight||0));
+          const rep = Number(s.rep||0);
+          const rm = calcEpley1RM(w, rep);
+          if(rm > max1RM) max1RM = rm;
+          if(r.date > latestDate){
+            latestDate = r.date;
+            latest1RM = rm;
+          }
+        })
+      })
+    })
+    const valEl = document.getElementById('bt-'+item.id);
+    const subEl = document.getElementById('bt-'+item.id+'-sub');
+    if(max1RM > 0){
+      valEl.innerText = Math.round(max1RM) + 'kg';
+      subEl.innerText = `最新 ${Math.round(latest1RM)}kg · ${latestDate.slice(5)}`;
+    }else{
+      valEl.innerText = '-';
+      subEl.innerText = '暂无数据';
+    }
+  })
+}
 function renderBarChart(containerId,dataMap){
   const wrap = document.getElementById(containerId);
   const entries = Object.entries(dataMap).sort((a,b)=>b[1]-a[1]);
   if(!entries.length){wrap.innerHTML="<div>暂无数据</div>";return}
   const max = Math.max(...entries.map(x=>x[1]));
+  const total = entries.reduce((s,x)=>s+x[1],0);
   let svg = `<svg height="${entries.length*32+20}" viewBox="0 0 420 ${entries.length*32+20}">`;
   entries.forEach(([k,v],i)=>{
-    const w = (v/max)*320;
+    const w = (v/max)*280;
+    const pct = ((v/total)*100).toFixed(1);
     svg += `<rect x="80" y="${i*30+5}" width="${w}" height="20" fill="#2563eb" rx="3"></rect>`;
     svg += `<text x="75" y="${i*30+19}" text-anchor="end" font-size="12">${k}</text>`;
-    svg += `<text x="${80+w+4}" y="${i*30+19}" font-size="12">${v}</text>`;
+    svg += `<text x="${80+w+4}" y="${i*30+19}" font-size="12">${v} (${pct}%)</text>`;
   })
+  svg += "</svg>";
+  wrap.innerHTML = svg;
+}
+function renderWeekChart(containerId,dataMap){
+  const wrap = document.getElementById(containerId);
+  const entries = Object.entries(dataMap).sort((a,b)=>a[0].localeCompare(b[0]));
+  if(!entries.length){wrap.innerHTML="<div>暂无数据</div>";return}
+  const maxCount = Math.max(...entries.map(x=>x[1].count));
+  const maxVol = Math.max(...entries.map(x=>x[1].vol)) || 1;
+  const h = 200;
+  const barW = 24;
+  const gap = 20;
+  const left = 50, right = 50;
+  const w = entries.length*(barW+gap) + left + right;
+  let svg = `<svg height="${h+40}" viewBox="0 0 ${w} ${h+40}">`;
+  
+  entries.forEach(([k,v],i)=>{
+    const x = left + i*(barW+gap);
+    const bh = (v.count/maxCount)*(h-40);
+    svg += `<rect x="${x}" y="${h-bh}" width="${barW}" height="${bh}" fill="#2563eb" rx="3"></rect>`;
+    svg += `<text x="${x+barW/2}" y="${h+15}" text-anchor="middle" font-size="11">${k.slice(-4)}</text>`;
+    svg += `<text x="${x+barW/2}" y="${h-bh-4}" text-anchor="middle" font-size="11" fill="#1e40af">${v.count}次</text>`;
+  })
+
+  let points = "";
+  entries.forEach(([k,v],i)=>{
+    const x = left + i*(barW+gap) + barW/2;
+    const y = h - (v.vol/maxVol)*(h-40);
+    points += `${x},${y} `;
+  })
+  svg += `<polyline points="${points}" fill="none" stroke="#f59e0b" stroke-width="2"/>`;
+  entries.forEach(([k,v],i)=>{
+    const x = left + i*(barW+gap) + barW/2;
+    const y = h - (v.vol/maxVol)*(h-40);
+    svg += `<circle cx="${x}" cy="${y}" r="3" fill="#f59e0b"/>`;
+  })
+
+  svg += `<text x="${w-10}" y="20" text-anchor="end" font-size="11" fill="#f59e0b">容量</text>`;
+  svg += `<text x="${w-10}" y="35" text-anchor="end" font-size="11" fill="#2563eb">次数</text>`;
+  svg += "</svg>";
+  wrap.innerHTML = svg;
+}
+function renderProgressSelect(exVolMap){
+  const sel = document.getElementById('progress-ex-select');
+  const names = Object.keys(exVolMap).sort();
+  sel.innerHTML = names.map(n=>`<option value="${n}">${n}</option>`).join('');
+  renderProgressChart();
+}
+function renderProgressChart(){
+  const wrap = document.getElementById('chart-progress');
+  const name = document.getElementById('progress-ex-select').value;
+  if(!name){wrap.innerHTML="<div>暂无数据</div>";return}
+  
+  const points = [];
+  store.records.forEach(r=>{
+    const bw = Number(r.bodyWeight||0);
+    (r.exercises||[]).forEach(ex=>{
+      if(ex.name !== name) return;
+      let maxW = 0, max1RM = 0;
+      (ex.sets||[]).forEach(s=>{
+        if(s.warm) return;
+        const w = calcSetEffectiveWeight(s, bw);
+        const rep = Number(s.rep||0);
+        if(w>maxW) maxW = w;
+        const rm = calcEpley1RM(w, rep);
+        if(rm>max1RM) max1RM = rm;
+      })
+      if(maxW>0) points.push({date:r.date, w:maxW, rm:max1RM});
+    })
+  })
+  points.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(!points.length){wrap.innerHTML="<div>暂无该动作数据</div>";return}
+
+  const h = 220;
+  const left = 50, right = 30;
+  const gap = 40;
+  const w = points.length*gap + left + right;
+  const maxW = Math.max(...points.map(p=>p.rm));
+  const minW = Math.min(...points.map(p=>p.w));
+  const range = maxW - minW || 1;
+
+  let svg = `<svg height="${h+40}" viewBox="0 0 ${w} ${h+40}">`;
+  let polyW = "", polyRM = "";
+  points.forEach((p,i)=>{
+    const x = left + i*gap;
+    const yW = h - 30 - ((p.w - minW)/range)*(h-60);
+    const yRM = h - 30 - ((p.rm - minW)/range)*(h-60);
+    polyW += `${x},${yW} `;
+    polyRM += `${x},${yRM} `;
+    svg += `<circle cx="${x}" cy="${yW}" r="4" fill="#2563eb"/>`;
+    svg += `<circle cx="${x}" cy="${yRM}" r="4" fill="#16a34a"/>`;
+    svg += `<text x="${x}" y="${yRM-8}" text-anchor="middle" font-size="11" fill="#166534">${Math.round(p.rm)}kg</text>`;
+    svg += `<text x="${x}" y="${h+10}" text-anchor="middle" font-size="10">${p.date.slice(5)}</text>`;
+  })
+  svg += `<polyline points="${polyW}" fill="none" stroke="#2563eb" stroke-width="2"/>`;
+  svg += `<polyline points="${polyRM}" fill="none" stroke="#16a34a" stroke-width="2" stroke-dasharray="4,2"/>`;
+  svg += `<text x="${left}" y="20" font-size="11" fill="#2563eb">— 重量</text>`;
+  svg += `<text x="${left+60}" y="20" font-size="11" fill="#16a34a">- - 估算1RM</text>`;
+  svg += "</svg>";
+  wrap.innerHTML = svg;
+}
+function renderRankChart(containerId,dataMap){
+  const wrap = document.getElementById(containerId);
+  const entries = Object.entries(dataMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  if(!entries.length){wrap.innerHTML="<div>暂无数据</div>";return}
+  const max = entries[0][1];
+  let svg = `<svg height="${entries.length*36+20}" viewBox="0 0 460 ${entries.length*36+20}">`;
+  entries.forEach(([k,v],i)=>{
+    const w = (v/max)*300;
+    svg += `<rect x="90" y="${i*32+5}" width="${w}" height="22" fill="#16a34a" rx="3"></rect>`;
+    svg += `<text x="85" y="${i*32+21}" text-anchor="end" font-size="12">${i+1}</text>`;
+    svg += `<text x="${90+w+4}" y="${i*32+21}" font-size="12">${Math.round(v)} kg</text>`;
+    svg += `<text x="92" y="${i*32+21}" font-size="11" fill="#fff">${k}</text>`;
+  })
+  svg += "</svg>";
+  wrap.innerHTML = svg;
+}
+function renderWeightChart(containerId,list){
+  const wrap = document.getElementById(containerId);
+  if(!list.length){wrap.innerHTML="<div>暂无体重数据</div>";return}
+  list.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const h = 180;
+  const left = 50, right = 30;
+  const gap = 40;
+  const w = list.length*gap + left + right;
+  const max = Math.max(...list.map(p=>p.w));
+  const min = Math.min(...list.map(p=>p.w));
+  const range = max - min || 1;
+
+  let svg = `<svg height="${h+40}" viewBox="0 0 ${w} ${h+40}">`;
+  let poly = "";
+  list.forEach((p,i)=>{
+    const x = left + i*gap;
+    const y = h - 30 - ((p.w - min)/range)*(h-60);
+    poly += `${x},${y} `;
+    svg += `<circle cx="${x}" cy="${y}" r="4" fill="#f59e0b"/>`;
+    svg += `<text x="${x}" y="${y-8}" text-anchor="middle" font-size="11" fill="#b45309">${p.w}kg</text>`;
+    svg += `<text x="${x}" y="${h+10}" text-anchor="middle" font-size="10">${p.date.slice(5)}</text>`;
+  })
+  svg += `<polyline points="${poly}" fill="none" stroke="#f59e0b" stroke-width="2"/>`;
   svg += "</svg>";
   wrap.innerHTML = svg;
 }
@@ -789,12 +1271,12 @@ function reportPrint(){
   w.print();
 }
 function exportCsv(){
-  let csv = "日期,部位,动作,组,重量(kg),次数,间歇(s),热身,力竭\n";
+  let csv = "日期,体重,部位,动作,组,重量(kg),次数,间歇(s),热身,力竭,辅助,单侧\n";
   store.records.forEach(r=>{
     const parts = (r.parts||[]).join('|');
     (r.exercises||[]).forEach((ex,ei)=>{
       (ex.sets||[]).forEach((s,si)=>{
-        csv += `${r.date},${parts},${ex.name},${si+1},${s.weight},${s.rep},${s.rest},${s.warm},${s.failure}\n`
+        csv += `${r.date},${r.bodyWeight||''},${parts},${ex.name},${si+1},${s.weight},${s.rep},${s.rest},${s.warm},${s.failure},${s.assist||''},${s.unilateral||''}\n`
       })
     })
   })
@@ -822,7 +1304,7 @@ function importAll(){
 }
 function download(name,content,type){
   const blob = new Blob([content],{type});
-  const url = URL.createObjectURL(url);
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;a.download = name;a.click();
   URL.revokeObjectURL(url);
